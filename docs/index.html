@@ -39,7 +39,7 @@ input,select{padding:8px;margin:6px;background:#111;color:#fff;border:1px solid 
   import { SuiClient, getFullnodeUrl } from "https://esm.sh/@mysten/sui.js@0.34.0/client";
   import { keccak_256 } from "https://esm.sh/@noble/hashes@1.5.0/sha3";
   const client = new SuiClient({ url: getFullnodeUrl('testnet') });
-  const PACKAGE_ID = "0xYOUR_PACKAGE_ID";
+  const PACKAGE_ID = "0xbca9fc11bab446be8b82c9e8703c6610d5b296b04e2720c605b6089f8ac2cd65";
   const MODULE = "rps_commit_reveal";
   const status = document.getElementById('status'); const result = document.getElementById('result');
   const wallet = window.suiWallet || window.wallet;
