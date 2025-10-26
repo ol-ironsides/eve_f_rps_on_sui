@@ -31,93 +31,193 @@ input,select{padding:8px;margin:6px;background:#111;color:#fff;border:1px solid 
 <div>
   <button class="btn" id="check">Check Winner</button>
   <button class="btn" id="demo">Play-for-fun Demo (local)</button>
+  <button class="btn" id="claim">Claim Timeout</button>
 </div>
 <div class="note">On-chain actions need a Sui wallet extension. Replace PACKAGE_ID in this file after you publish the Move package.</div>
 <div class="status" id="status">Ready</div>
 <div class="result" id="result"></div>
 <script type="module">
+  async function ensureWallet() {
+  if (!wallet) { setStatus('Install Sui Wallet.'); return false; }
+  try { await wallet.requestPermissions?.(); return true; }
+  catch { setStatus('Wallet permissions denied.'); return false; }
+}
+// Example use:
+// if (!(await ensureWallet())) return;
   import { SuiClient, getFullnodeUrl } from "https://esm.sh/@mysten/sui.js@0.34.0/client";
   import { keccak_256 } from "https://esm.sh/@noble/hashes@1.5.0/sha3";
+
   const client = new SuiClient({ url: getFullnodeUrl('testnet') });
   const PACKAGE_ID = "0xbca9fc11bab446be8b82c9e8703c6610d5b296b04e2720c605b6089f8ac2cd65";
   const MODULE = "rps_commit_reveal";
-  const status = document.getElementById('status'); const result = document.getElementById('result');
+  const CLOCK_ID = "0x6"; // Sui shared Clock object id
+
+  const status = document.getElementById('status');
+  const result = document.getElementById('result');
   const wallet = window.suiWallet || window.wallet;
-  const setStatus = (m)=> status.textContent = m; const setResult = (m)=> result.textContent = m;
+
+  const setStatus = (m)=> status.textContent = m;
+  const setResult = (m)=> result.textContent = m;
+
   const gid = ()=> document.getElementById('gameId').value.trim();
   const gmv = ()=> Number(document.getElementById('move').value);
   const gsc = ()=> document.getElementById('secret').value;
-  const commit = (m,s)=> Array.from(keccak_256(new Uint8Array([m, ...new TextEncoder().encode(s)])));
-  document.getElementById('create').onclick = async ()=>{
-    if(!wallet) return setStatus('Install Sui Wallet to create a game.');
-    try{ await wallet.requestPermissions(); setStatus('Creating...');
-      const tx={kind:'moveCall',data:{packageObjectId:PACKAGE_ID,module:MODULE,function:'create_game',arguments:[60000]}};
-      await wallet.signAndExecuteTransaction(tx); setStatus('Created. Check wallet activity for object ID.');
-    }catch(e){console.error(e); setStatus('Create failed');}
-  };
+
+  const commitBytes = (m,s)=> Array.from(keccak_256(new Uint8Array([m, ...new TextEncoder().encode(s)])));
+
+  async function myAddress() {
+    const accounts = await wallet.getAccounts?.();
+    return accounts?.[0]?.address;
+  }
+
+  // CREATE: (timeout_ms, clock)
+document.getElementById('create').onclick = async ()=>{
+  if(!wallet) return setStatus('Install Sui Wallet to create a game.');
+  try{
+    await wallet.requestPermissions?.();
+    setStatus('Creating game...');
+    const tx = {
+      kind:'moveCall',
+      data:{
+        packageObjectId: PACKAGE_ID,
+        module: MODULE,
+        function: 'create_game',
+        arguments: [60000, CLOCK_ID], // 60s timeout, pass Clock
+        typeArguments: [],
+        gasBudget: 10_000_000
+      }
+    };
+    const res = await wallet.signAndExecuteTransaction(tx);
+
+    // Try to find the created Game object id:
+    const created = res?.effects?.created || res?.objectChanges || [];
+    let gameId = '';
+    // Look through both shapes (older/newer wallet responses)
+    for (const c of created) {
+      const id = c?.reference?.objectId || c?.objectId;
+      if (id) { gameId = id; break; }
+    }
+    if (gameId) {
+      document.getElementById('gameId').value = gameId;
+      setStatus(`Created game: ${gameId}`);
+    } else {
+      setStatus('Created. Open wallet activity to copy the new Game object ID.');
+    }
+  }catch(e){ console.error(e); setStatus('Create failed'); }
+};
+
+  // JOIN: (gameId, playerAddress)
   document.getElementById('join').onclick = async ()=>{
     if(!wallet) return setStatus('Install Sui Wallet to join.');
-    const id=gid(); if(!id) return setStatus('Enter Game Object ID');
-    try{ await wallet.requestPermissions();
-      const tx={kind:'moveCall',data:{packageObjectId:PACKAGE_ID,module:MODULE,function:'join_game',arguments:[id]}};
-      await wallet.signAndExecuteTransaction(tx); setStatus('Joined. Commit your move.');
-    }catch(e){console.error(e); setStatus('Join failed');}
+    const id = gid(); if(!id) return setStatus('Enter Game Object ID');
+    try{
+      await wallet.requestPermissions?.();
+      const addr = await myAddress();
+      const tx = {
+        kind:'moveCall',
+        data:{
+          packageObjectId: PACKAGE_ID,
+          module: MODULE,
+          function: 'join_game',
+          arguments: [id, addr],
+          typeArguments: [],
+          gasBudget: 5_000_000
+        }
+      };
+      await wallet.signAndExecuteTransaction(tx);
+      setStatus('Joined. Commit your move.');
+    }catch(e){ console.error(e); setStatus('Join failed'); }
   };
+
+  // COMMIT: (gameId, playerAddress, commitmentVecU8)
   document.getElementById('commit').onclick = async ()=>{
     if(!wallet) return setStatus('Install Sui Wallet to commit.');
-    const id=gid(); if(!id) return setStatus('Enter Game Object ID'); const s=gsc(); if(!s) return setStatus('Enter a secret');
-    try{ await wallet.requestPermissions();
-      const tx={kind:'moveCall',data:{packageObjectId:PACKAGE_ID,module:MODULE,function:'commit_move',arguments:[id, commit(gmv(), s)]}};
-      await wallet.signAndExecuteTransaction(tx); setStatus('Committed.');
-    }catch(e){console.error(e); setStatus('Commit failed');}
+    const id = gid(); if(!id) return setStatus('Enter Game Object ID');
+    const s = gsc(); if(!s) return setStatus('Enter a secret');
+    try{
+      await wallet.requestPermissions?.();
+      const addr = await myAddress();
+      const commitment = commitBytes(gmv(), s);
+      const tx = {
+        kind:'moveCall',
+        data:{
+          packageObjectId: PACKAGE_ID,
+          module: MODULE,
+          function: 'commit_move',
+          arguments: [id, addr, commitment],
+          typeArguments: [],
+          gasBudget: 5_000_000
+        }
+      };
+      await wallet.signAndExecuteTransaction(tx);
+      setStatus('Committed.');
+    }catch(e){ console.error(e); setStatus('Commit failed'); }
   };
+
+  // REVEAL: (gameId, playerAddress, moveVal, secretVecU8)
   document.getElementById('reveal').onclick = async ()=>{
     if(!wallet) return setStatus('Install Sui Wallet to reveal.');
-    const id=gid(); if(!id) return setStatus('Enter Game Object ID'); const s=gsc(); if(!s) return setStatus('Enter a secret');
-    try{ await wallet.requestPermissions();
-      const tx={kind:'moveCall',data:{packageObjectId:PACKAGE_ID,module:MODULE,function:'reveal_move',arguments:[id, gmv(), Array.from(new TextEncoder().encode(s))]}};
-      await wallet.signAndExecuteTransaction(tx); setStatus('Revealed.');
-    }catch(e){console.error(e); setStatus('Reveal failed');}
+    const id = gid(); if(!id) return setStatus('Enter Game Object ID');
+    const s = gsc(); if(!s) return setStatus('Enter a secret');
+    try{
+      await wallet.requestPermissions?.();
+      const addr = await myAddress();
+      const secretBytes = Array.from(new TextEncoder().encode(s));
+      const tx = {
+        kind:'moveCall',
+        data:{
+          packageObjectId: PACKAGE_ID,
+          module: MODULE,
+          function: 'reveal_move',
+          arguments: [id, addr, gmv(), secretBytes],
+          typeArguments: [],
+          gasBudget: 5_000_000
+        }
+      };
+      await wallet.signAndExecuteTransaction(tx);
+      setStatus('Revealed.');
+    }catch(e){ console.error(e); setStatus('Reveal failed'); }
   };
+
+  // CHECK winner (read-only)
   document.getElementById('check').onclick = async ()=>{
-    const id=gid(); if(!id) return setStatus('Enter Game Object ID');
-    try{ const o=await client.getObject({id,options:{showContent:true}}); const f=o?.data?.content?.fields; const w=f?.winner;
-      setResult(w && w!=='0x0' ? 'Winner: '+w : 'Draw or pending...');
-    }catch(e){console.error(e); setStatus('Fetch failed');}
+    const id = gid(); if(!id) return setStatus('Enter Game Object ID');
+    try{
+      const o = await client.getObject({ id, options:{ showContent:true } });
+      const f = o?.data?.content?.fields;
+      const w = f?.winner;
+      setResult(w && w !== '0x0' ? ('Winner: ' + w) : 'Draw or pending...');
+    }catch(e){ console.error(e); setStatus('Fetch failed'); }
   };
+
+  // Local demo (off-chain)
   document.getElementById('demo').onclick = ()=>{
-    const a=gmv(); const b=Math.floor(Math.random()*3); const names=['Rock','Paper','Scissors'];
+    const a = gmv(); const b = Math.floor(Math.random()*3); const names = ['Rock','Paper','Scissors'];
     const out = a===b?0:((a===0&&b===2)||(a===1&&b===0)||(a===2&&b===1))?1:-1;
     setStatus(`You: ${names[a]} vs Bot: ${names[b]}`); setResult(out===0?'Draw':(out>0?'You win!':'You lose'));
   };
-</script>
-  <script>
-// =============== Sui Game Interaction ===============
-const PACKAGE_ID = "0xYOUR_PACKAGE_ID";  // replace with real one
-const CLOCK_ID = "0x6"; // Sui system Clock shared object
-
-async function getMyAddress() {
-  const accounts = await window.suiWallet.getAccounts();
-  return accounts[0].address;
-}
-
-async function createGame() {
-  const tx = {
-    kind: "moveCall",
-    data: {
-      packageObjectId: PACKAGE_ID,
-      module: "rps_commit_reveal",
-      function: "create_game",
-      arguments: [60000, CLOCK_ID], // 60s timeout
-      gasBudget: 10000000,
-    },
-  };
-  await window.suiWallet.signAndExecuteTransaction(tx);
-  alert("Game created!");
-}
-
-// (other tx functions: join_game, commit_move, reveal_move, claim_timeout)
-// you can paste them below as shown in my earlier example
+  // CLAIM TIMEOUT: (gameId, clock, caller)
+document.getElementById('claim').onclick = async ()=>{
+  if(!wallet) return setStatus('Install Sui Wallet to claim timeout.');
+  const id = gid(); if(!id) return setStatus('Enter Game Object ID');
+  try{
+    await wallet.requestPermissions?.();
+    const addr = await myAddress();
+    const tx = {
+      kind:'moveCall',
+      data:{
+        packageObjectId: PACKAGE_ID,
+        module: MODULE,
+        function: 'claim_timeout',
+        arguments: [id, CLOCK_ID, addr],
+        typeArguments: [],
+        gasBudget: 5_000_000
+      }
+    };
+    await wallet.signAndExecuteTransaction(tx);
+    setStatus('Timeout claimed (if eligible).');
+  }catch(e){ console.error(e); setStatus('Claim failed'); }
+};
 </script>
 </body>
 </html>
