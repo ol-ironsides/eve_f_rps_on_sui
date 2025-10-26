@@ -201,22 +201,11 @@ document.getElementById('create').onclick = async () => {
   }
 };
 
-  // JOIN: (gameId, playerAddress)
-document.getElementById('join').onclick = async () => {
-  const wallet = window.suiWallet || window.wallet;
-  if (!wallet) return setStatus('Install Sui Wallet to join.');
-  const id = gid(); if (!id) return setStatus('Enter Game Object ID');
-
-  try {
-    await wallet.requestPermissions?.();
-    const accounts = await wallet.getAccounts?.();
-    const addr = accounts?.[0]?.address;
-
-    const tx = new TransactionBlock();
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE}::join_game`,
-      arguments: [ tx.object(id), tx.pure(addr) ],
-    });
+ // JOIN: (gameId, playerAddress, clock)
+tx.moveCall({
+  target: `${PACKAGE_ID}::${MODULE}::join_game`,
+  arguments: [ tx.object(id), tx.pure(addr), tx.object(CLOCK_ID) ],
+});
 
     await wallet.signAndExecuteTransactionBlock({ transactionBlock: tx });
     setStatus('Joined. Commit your move.');
