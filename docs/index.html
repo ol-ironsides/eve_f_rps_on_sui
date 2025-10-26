@@ -38,9 +38,10 @@ input,select{padding:8px;margin:6px;background:#111;color:#fff;border:1px solid 
 <div class="result" id="result"></div>
 
 <script type="module">
-  import { SuiClient, getFullnodeUrl } from "https://cdn.jsdelivr.net/npm/@mysten/sui@0.54.1/client/+esm";
-  import { TransactionBlock } from "https://cdn.jsdelivr.net/npm/@mysten/sui@0.54.1/transactions/+esm";
-  // (keep your other code below)
+ import { SuiClient, getFullnodeUrl } from "https://cdn.jsdelivr.net/npm/@mysten/sui@0.54.1/dist/esm/client.js";
+  import { TransactionBlock } from "https://cdn.jsdelivr.net/npm/@mysten/sui@0.54.1/dist/esm/transactions/index.js";
+  import { keccak_256 } from "https://cdn.jsdelivr.net/npm/@noble/hashes@1.5.0/sha3.js";
+  // ...rest of your code
 
   // Client + constants (update PACKAGE_ID after publishing)
   const client = new SuiClient({ url: getFullnodeUrl('testnet') });
