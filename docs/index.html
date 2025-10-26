@@ -200,105 +200,74 @@ document.getElementById('create').onclick = async () => {
 };
 
   // JOIN: (gameId, playerAddress)
-  document.getElementById('join').onclick = async () => {
-    const btn = document.getElementById('join');
-    await runWithButtonDisabled(btn, async () => {
-      const wallet = currentWallet();
-      if (!wallet) return setStatus('Install Sui Wallet to join.');
-      const id = gid(); if (!id) return setStatus('Enter Game Object ID');
-      if (!(await ensureWallet())) return;
-      try {
-        setStatus('Joining game...');
-        const addr = await myAddress();
-        if (!addr) return setStatus('No wallet account available.');
-        const tx = {
-          kind: 'moveCall',
-          data: {
-            packageObjectId: PACKAGE_ID,
-            module: MODULE,
-            function: 'join_game',
-            arguments: [id, addr],
-            typeArguments: [],
-            gasBudget: 5_000_000
-          }
-        };
-        await wallet.signAndExecuteTransaction(tx);
-        setStatus('Joined. Commit your move.');
-      } catch (e) {
-        console.error(e);
-        setStatus(e?.message ? `Join failed: ${e.message}` : 'Join failed');
-      }
+document.getElementById('join').onclick = async () => {
+  const wallet = window.suiWallet || window.wallet;
+  if (!wallet) return setStatus('Install Sui Wallet to join.');
+  const id = gid(); if (!id) return setStatus('Enter Game Object ID');
+
+  try {
+    await wallet.requestPermissions?.();
+    const accounts = await wallet.getAccounts?.();
+    const addr = accounts?.[0]?.address;
+
+    const tx = new TransactionBlock();
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE}::join_game`,
+      arguments: [ tx.object(id), tx.pure(addr) ],
     });
-  };
+
+    await wallet.signAndExecuteTransactionBlock({ transactionBlock: tx });
+    setStatus('Joined. Commit your move.');
+  } catch (e) { console.error(e); setStatus('Join failed'); }
+};
 
   // COMMIT: (gameId, playerAddress, commitmentVecU8)
   document.getElementById('commit').onclick = async () => {
-    const btn = document.getElementById('commit');
-    await runWithButtonDisabled(btn, async () => {
-      const wallet = currentWallet();
-      if (!wallet) return setStatus('Install Sui Wallet to commit.');
-      const id = gid(); if (!id) return setStatus('Enter Game Object ID');
-      const s = gsc(); if (!s) return setStatus('Enter a secret');
-      if (!(await ensureWallet())) return;
-      try {
-        setStatus('Committing move...');
-        const addr = await myAddress();
-        if (!addr) return setStatus('No wallet account available.');
-        const commitment = commitBytes(gmv(), s);
-        const tx = {
-          kind: 'moveCall',
-          data: {
-            packageObjectId: PACKAGE_ID,
-            module: MODULE,
-            function: 'commit_move',
-            arguments: [id, addr, commitment],
-            typeArguments: [],
-            gasBudget: 5_000_000
-          }
-        };
-        await wallet.signAndExecuteTransaction(tx);
-        setStatus('Committed.');
-      } catch (e) {
-        console.error(e);
-        setStatus(e?.message ? `Commit failed: ${e.message}` : 'Commit failed');
-      }
+  const wallet = window.suiWallet || window.wallet;
+  if (!wallet) return setStatus('Install Sui Wallet to commit.');
+  const id = gid(); if (!id) return setStatus('Enter Game Object ID');
+  const s = gsc(); if (!s) return setStatus('Enter a secret');
+
+  try {
+    await wallet.requestPermissions?.();
+    const accounts = await wallet.getAccounts?.();
+    const addr = accounts?.[0]?.address;
+    const commitment = commitBytes(gmv(), s); // vector<u8>
+
+    const tx = new TransactionBlock();
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE}::commit_move`,
+      arguments: [ tx.object(id), tx.pure(addr), tx.pure(commitment) ],
     });
-  };
+
+    await wallet.signAndExecuteTransactionBlock({ transactionBlock: tx });
+    setStatus('Committed.');
+  } catch (e) { console.error(e); setStatus('Commit failed'); }
+};
 
   // REVEAL: (gameId, playerAddress, moveVal, secretVecU8)
   document.getElementById('reveal').onclick = async () => {
-    const btn = document.getElementById('reveal');
-    await runWithButtonDisabled(btn, async () => {
-      const wallet = currentWallet();
-      if (!wallet) return setStatus('Install Sui Wallet to reveal.');
-      const id = gid(); if (!id) return setStatus('Enter Game Object ID');
-      const s = gsc(); if (!s) return setStatus('Enter a secret');
-      if (!(await ensureWallet())) return;
-      try {
-        setStatus('Revealing move...');
-        const addr = await myAddress();
-        if (!addr) return setStatus('No wallet account available.');
-        const secretBytes = Array.from(new TextEncoder().encode(s));
-        const tx = {
-          kind: 'moveCall',
-          data: {
-            packageObjectId: PACKAGE_ID,
-            module: MODULE,
-            function: 'reveal_move',
-            arguments: [id, addr, gmv(), secretBytes],
-            typeArguments: [],
-            gasBudget: 5_000_000
-          }
-        };
-        await wallet.signAndExecuteTransaction(tx);
-        setStatus('Revealed.');
-      } catch (e) {
-        console.error(e);
-        setStatus(e?.message ? `Reveal failed: ${e.message}` : 'Reveal failed');
-      }
-    });
-  };
+  const wallet = window.suiWallet || window.wallet;
+  if (!wallet) return setStatus('Install Sui Wallet to reveal.');
+  const id = gid(); if (!id) return setStatus('Enter Game Object ID');
+  const s = gsc(); if (!s) return setStatus('Enter a secret');
 
+  try {
+    await wallet.requestPermissions?.();
+    const accounts = await wallet.getAccounts?.();
+    const addr = accounts?.[0]?.address;
+    const secretBytes = Array.from(new TextEncoder().encode(s));
+
+    const tx = new TransactionBlock();
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE}::reveal_move`,
+      arguments: [ tx.object(id), tx.pure(addr), tx.pure(gmv()), tx.pure(secretBytes) ],
+    });
+
+    await wallet.signAndExecuteTransactionBlock({ transactionBlock: tx });
+    setStatus('Revealed.');
+  } catch (e) { console.error(e); setStatus('Reveal failed'); }
+};
   // CHECK winner (read-only)
   document.getElementById('check').onclick = async () => {
     const id = gid(); if (!id) return setStatus('Enter Game Object ID');
@@ -327,35 +296,41 @@ document.getElementById('create').onclick = async () => {
 
   // CLAIM TIMEOUT: (gameId, clock, caller)
   document.getElementById('claim').onclick = async () => {
-    const btn = document.getElementById('claim');
-    await runWithButtonDisabled(btn, async () => {
-      const wallet = currentWallet();
-      if (!wallet) return setStatus('Install Sui Wallet to claim timeout.');
-      const id = gid(); if (!id) return setStatus('Enter Game Object ID');
-      if (!(await ensureWallet())) return;
-      try {
-        setStatus('Claiming timeout...');
-        const addr = await myAddress();
-        if (!addr) return setStatus('No wallet account available.');
-        const tx = {
-          kind: 'moveCall',
-          data: {
-            packageObjectId: PACKAGE_ID,
-            module: MODULE,
-            function: 'claim_timeout',
-            arguments: [id, CLOCK_ID, addr],
-            typeArguments: [],
-            gasBudget: 5_000_000
-          }
-        };
-        await wallet.signAndExecuteTransaction(tx);
-        setStatus('Timeout claimed (if eligible).');
-      } catch (e) {
-        console.error(e);
-        setStatus(e?.message ? `Claim failed: ${e.message}` : 'Claim failed');
-      }
+  const wallet = window.suiWallet || window.wallet;
+  if (!wallet) return setStatus('Install Sui Wallet to claim timeout.');
+  const id = gid(); if (!id) return setStatus('Enter Game Object ID');
+
+  try {
+    await wallet.requestPermissions?.();
+    const accounts = await wallet.getAccounts?.();
+    const addr = accounts?.[0]?.address;
+
+    const tx = new TransactionBlock();
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE}::claim_timeout`,
+      arguments: [ tx.object(id), tx.object(CLOCK_ID), tx.pure(addr) ],
     });
-  };
+
+    await wallet.signAndExecuteTransactionBlock({ transactionBlock: tx });
+    setStatus('Timeout claimed (if eligible).');
+  } catch (e) { console.error(e); setStatus('Claim failed'); }
+};
+  // Always-on local demo
+document.getElementById('demo').onclick = () => {
+  const a = gmv(); const b = Math.floor(Math.random()*3);
+  const names = ['Rock','Paper','Scissors'];
+  const out = a===b ? 0 : ((a===0&&b===2)||(a===1&&b===0)||(a===2&&b===1)) ? 1 : -1;
+  setStatus(`You: ${names[a]} vs Bot: ${names[b]}`);
+  setResult(out===0?'Draw':(out>0?'You win!':'You lose'));
+};
+
+// Onchain features in a guarded block
+try {
+  // (imports, client, handlers for create/join/commit/reveal/claim/check)
+} catch (e) {
+  console.error('Onchain init failed', e);
+  setStatus('Onchain features offline (imports failed). Local demo works.');
+}
 </script>
 
 </body>
