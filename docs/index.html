@@ -44,9 +44,10 @@ input,select{padding:8px;margin:6px;background:#111;color:#fff;border:1px solid 
 }
 // Example use:
 // if (!(await ensureWallet())) return;
-  import { SuiClient, getFullnodeUrl } from "https://esm.sh/@mysten/sui.js@0.34.0/client";
-  import { keccak_256 } from "https://esm.sh/@noble/hashes@1.5.0/sha3";
-
+ <script type="module">
+  import { SuiClient, getFullnodeUrl } from "https://cdn.jsdelivr.net/npm/@mysten/sui/client/+esm";
+  import { keccak_256 } from "https://cdn.jsdelivr.net/npm/@noble/hashes@1.5.0/sha3/+esm";
+ 
   const client = new SuiClient({ url: getFullnodeUrl('testnet') });
   const PACKAGE_ID = "0xbca9fc11bab446be8b82c9e8703c6610d5b296b04e2720c605b6089f8ac2cd65";
   const MODULE = "rps_commit_reveal";
