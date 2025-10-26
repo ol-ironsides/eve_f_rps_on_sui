@@ -17,7 +17,7 @@ It demonstrates minimal smart-contract logic in Move, paired with a static front
 
 ## 🖼️ Preview
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ol-ironsides/eve_f_rps_on_sui/main/docs/screenshot.png" width="520" alt="RPS on Sui UI preview"/>
+  <img src="https://github.com/ol-ironsides/eve_f_rps_on_sui/blob/main/docs/Screenshot.png" width="520" alt="RPS on Sui UI preview"/>
 </p>
 
 ---
