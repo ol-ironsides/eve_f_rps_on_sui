@@ -38,10 +38,11 @@ input,select{padding:8px;margin:6px;background:#111;color:#fff;border:1px solid 
 <div class="result" id="result"></div>
 
 <script type="module">
-import { SuiClient, getFullnodeUrl } from "https://unpkg.com/@mysten/sui@0.54.1/dist/esm/client.js?module";
-  import { TransactionBlock } from "https://unpkg.com/@mysten/sui@0.54.1/dist/esm/transactions/index.js?module";
-  import { keccak_256 } from "https://unpkg.com/@noble/hashes@1.5.0/sha3.js?module";
-  // ...rest of your code
+import { SuiClient, getFullnodeUrl } from "https://esm.sh/@mysten/sui@0.54.1/client";
+  import { TransactionBlock } from "https://esm.sh/@mysten/sui@0.54.1/transactions";
+  import { keccak_256 } from "https://esm.sh/@noble/hashes@1.5.0/sha3";
+
+  // ...rest of your existing code (PACKAGE_ID, handlers, etc.)
 
   // Client + constants (update PACKAGE_ID after publishing)
   const client = new SuiClient({ url: getFullnodeUrl('testnet') });
