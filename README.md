@@ -1,17 +1,39 @@
-# Rock-paper-scissors on Sui — Prebuilt for GitHub Pages
+# 🎮 Rock-Paper-Scissors on Sui  
+*A minimal blockchain game built on the Sui Testnet — prebuilt for GitHub Pages.*
 
-**Deploy in 60 seconds:**
-1) Create or open your repo (e.g. `ol-ironsides/eve_f`).
-2) Copy everything from this ZIP into the repo.
-3) Commit & push.
-4) In GitHub: Settings → Pages → Source: `main` / Folder: `/docs` → Save.
-5) Go to `https://ol-ironsides.github.io/eve_f/`.
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Sui Testnet](https://img.shields.io/badge/Network-Sui%20Testnet-green)](https://sui.io/)
+[![Deploy Status](https://img.shields.io/badge/Deployed-GitHub%20Pages-success)](https://ol-ironsides.github.io/eve_f_rps_on_sui/)
 
-**Configure on-chain:**
-- Edit `docs/index.html` and replace `0xYOUR_PACKAGE_ID` with your Sui package id after you publish your Move module.
-- Install a Sui-compatible wallet in your browser. On-chain actions will use it.
+---
 
-**Folders**
-- `move/` — Move commit–reveal contract (timeouts).
-- `frontend/` — Vite+React source (optional).
-- `docs/` — Prebuilt static site for GitHub Pages.
+## 🧩 Overview
+**Rock-Paper-Scissors on Sui** is a simple 1v1 commit-reveal game running fully on the **Sui blockchain Testnet**.  
+It demonstrates minimal smart-contract logic in Move, paired with a static front-end that connects via Sui Wallet.
+
+🪶 Designed for **low gas**, **simple deploy**, and **educational clarity**.  
+
+---
+
+## 🖼️ Preview
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ol-ironsides/eve_f_rps_on_sui/main/docs/screenshot.png" width="520" alt="RPS on Sui UI preview"/>
+</p>
+
+---
+
+## 📁 Project Structure
+| Folder | Description |
+|:--------|:-------------|
+| `move/` | Move source (`rps_commit_reveal.move`) + `Move.toml` manifest |
+| `frontend/` | Optional full dev source if rebuilding frontend |
+| `docs/` | Pre-built static site ready for GitHub Pages |
+| `README.md` | This documentation file |
+
+---
+
+## 🚀 Quick Start (GitHub Pages)
+1. **Clone** this repo  
+   ```bash
+   git clone https://github.com/ol-ironsides/eve_f_rps_on_sui.git
+   cd eve_f_rps_on_sui
