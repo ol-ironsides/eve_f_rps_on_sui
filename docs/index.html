@@ -91,5 +91,33 @@ input,select{padding:8px;margin:6px;background:#111;color:#fff;border:1px solid 
     setStatus(`You: ${names[a]} vs Bot: ${names[b]}`); setResult(out===0?'Draw':(out>0?'You win!':'You lose'));
   };
 </script>
+  <script>
+// =============== Sui Game Interaction ===============
+const PACKAGE_ID = "0xYOUR_PACKAGE_ID";  // replace with real one
+const CLOCK_ID = "0x6"; // Sui system Clock shared object
+
+async function getMyAddress() {
+  const accounts = await window.suiWallet.getAccounts();
+  return accounts[0].address;
+}
+
+async function createGame() {
+  const tx = {
+    kind: "moveCall",
+    data: {
+      packageObjectId: PACKAGE_ID,
+      module: "rps_commit_reveal",
+      function: "create_game",
+      arguments: [60000, CLOCK_ID], // 60s timeout
+      gasBudget: 10000000,
+    },
+  };
+  await window.suiWallet.signAndExecuteTransaction(tx);
+  alert("Game created!");
+}
+
+// (other tx functions: join_game, commit_move, reveal_move, claim_timeout)
+// you can paste them below as shown in my earlier example
+</script>
 </body>
 </html>
