@@ -47,13 +47,13 @@
   <div class="result" id="result"></div>
 
   <script type="module">
-  /* Minimal, no-SDK version */
+  /* Minimal wallet-agnostic client, one-of-each definitions */
 
   // ---- Config ----
-  const FULLNODE = "https://fullnode.testnet.sui.io";      // JSON-RPC endpoint
-  const PACKAGE_ID = "0x5b7f03cc51a7232e458a151a831d15f53b0a66c4121c0aabae726173a206314d";                  // <-- paste your real package id
+  const FULLNODE = "https://fullnode.testnet.sui.io";
+  const PACKAGE_ID = "0x5b7f03cc51a7232e458a151a831d15f53b0a66c4121c0aabae726173a206314d"; // <-- your real package id
   const MODULE = "rps_commit_reveal";
-  const CLOCK_ID = "0x6";                                  // Sui shared Clock
+  const CLOCK_ID = "0x6";
 
   // ---- UI helpers ----
   const statusEl = document.getElementById("status");
@@ -64,118 +64,94 @@
   const gmv = () => Number(document.getElementById("move").value);
   const gsc = () => document.getElementById("secret").value;
 
-  function getWallet() {
-  // Try common Sui wallets:
-  return (
-    window.suiWallet ||          // Sui Wallet (Mysten)
-    window.suiet ||              // Suiet
-    window.ethos?.wallet ||      // Ethos
-    window.martian ||            // Martian (Sui)
-    window.onekey?.sui ||        // OneKey Sui
-    window.wallet ||             // generic
-    null
-  );
-}
-let wallet = getWallet();
-
-async function ensureWallet() {
-  wallet = getWallet();
-  if (!wallet) {
-    setStatus("No Sui wallet detected. Install Sui Wallet or Suiet, enable on this site, then reload.");
-    return false;
-  }
-  try {
-    await wallet.requestPermissions?.();
-  } catch (e) {
-    // Some wallets don’t implement requestPermissions; ignore
-  }
-  return true;
-}
-
-async function myAddress() {
-  if (!(await ensureWallet())) return null;
-  const a = await wallet?.getAccounts?.();
-  return a?.[0]?.address ?? null;
-}
-
-    async function sendMoveCall(moveFn, argKinds, argValues, gasBudget = 5_000_000) {
-  // argKinds: array of "pure" | "object" matching argValues positions
-  if (!(await ensureWallet())) throw new Error("No Sui wallet detected.");
-
-  // Modern API (preferred by Suiet, etc.)
-  if (typeof wallet.signAndExecuteTransactionBlock === "function") {
-    // Import the SDK lazily ONLY if we need it (avoids page-load CDN errors)
-    const { TransactionBlock } = await import("https://esm.sh/@mysten/sui/transactions");
-
-    const tx = new TransactionBlock();
-    const args = argValues.map((v, i) => (argKinds[i] === "object" ? tx.object(v) : tx.pure(v)));
-    tx.moveCall({
-      target: `${PACKAGE_ID}::${MODULE}::${moveFn}`,
-      arguments: args,
+  // ---- JSON-RPC helper (read-only) ----
+  async function rpc(method, params) {
+    const res = await fetch(FULLNODE, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
     });
-
-    return wallet.signAndExecuteTransactionBlock({
-      transactionBlock: tx,
-      options: { showEffects: true, showObjectChanges: true },
-    });
+    const j = await res.json();
+    if (j.error) throw new Error(j.error.message || "RPC error");
+    return j.result;
   }
 
-  // Legacy API (some wallets still support this)
-  if (typeof wallet.signAndExecuteTransaction === "function") {
-    const tx = {
-      kind: "moveCall",
-      data: {
-        packageObjectId: PACKAGE_ID,
-        module: MODULE,
-        function: moveFn,
-        arguments: argValues,
-        typeArguments: [],
-        gasBudget,
-      },
-    };
-    return wallet.signAndExecuteTransaction(tx);
-  }
-
-  throw new Error("Wallet does not support known Sui APIs.");
-}
-    
-  // ---- Keccak256 (tiny implementation using Web Crypto as fallback) ----
-  // You can replace this with @noble/hashes if you prefer, but this avoids imports.
-  // We'll emulate keccak256 using SubtleCrypto SHA-3 if available; if not, prompt user.
-  async function keccakBytes(bytes) {
-    // Many browsers don't expose SHA-3 in SubtleCrypto yet; if not available, we fallback to a tiny JS keccak.
-    // To keep it simple and dependency-free, we use a very small keccak impl if needed.
-    if (!window.__mini_keccak) {
-      // Minimal keccak256 impl (public domain) – tiny & slow but fine for our single hash per action.
-      // Source trimmed for brevity; if you want, we can switch to @noble/hashes later.
-      function keccak256(arr) {
-        // Extremely tiny placeholder: not a full crypto impl, but enough to avoid import 404s in demo mode.
-        // For testnet demo only. For production use @noble/hashes keccak_256.
-        // We'll just do a very naive XOR-mix to keep the interface. (This is OK ONLY as a placeholder for demo.)
-        let h = new Uint8Array(32);
-        for (let i = 0; i < arr.length; i++) h[i % 32] ^= (arr[i] + i) & 0xff;
-        return h; // NOT CRYPTO-GRADE!
-      }
-      window.__mini_keccak = keccak256;
-    }
-    return window.__mini_keccak(bytes);
-  }
-
-  const commitBytes = async (m, s) => {
+  // ---- Keccak256 (real) ----
+  const { keccak_256 } = await import("https://esm.sh/@noble/hashes@1.5.0/sha3");
+  const commitBytes = (m, s) => {
     const enc = new TextEncoder();
     const data = new Uint8Array(1 + enc.encode(s).length);
     data[0] = m & 0xff;
     data.set(enc.encode(s), 1);
-    const h = await keccakBytes(data);
-    return Array.from(h); // vector<u8>
+    return Array.from(keccak_256(data));
   };
 
-  async function myAddress() {
-    const a = await wallet?.getAccounts?.();
-    return a?.[0]?.address;
+  // ---- Wallet detection + permissioning ----
+  function getWallet() {
+    return (
+      window.suiWallet ||          // Sui Wallet (Mysten)
+      window.suiet ||              // Suiet
+      window.ethos?.wallet ||      // Ethos
+      window.martian ||            // Martian
+      window.onekey?.sui ||        // OneKey Sui
+      window.wallet ||             // generic
+      null
+    );
+  }
+  let wallet = getWallet();
+
+  async function ensureWallet() {
+    wallet = getWallet();
+    if (!wallet) {
+      setStatus("No Sui wallet detected. Install Sui Wallet or Suiet and enable it on this site.");
+      return false;
+    }
+    try { await wallet.requestPermissions?.(); } catch {}
+    return true;
   }
 
-  // ---- Always-on local demo ----
+  async function myAddress() {
+    if (!(await ensureWallet())) return null;
+    const a = await wallet?.getAccounts?.();
+    return a?.[0]?.address ?? null;
+  }
+
+  // ---- Tx helper supporting modern + legacy APIs ----
+  async function sendMoveCall(moveFn, argKinds, argValues, gasBudget = 5_000_000) {
+    if (!(await ensureWallet())) throw new Error("No Sui wallet detected.");
+
+    // Modern API
+    if (typeof wallet.signAndExecuteTransactionBlock === "function") {
+      const { TransactionBlock } = await import("https://esm.sh/@mysten/sui/transactions");
+      const tx = new TransactionBlock();
+      const args = argValues.map((v, i) => (argKinds[i] === "object" ? tx.object(v) : tx.pure(v)));
+      tx.moveCall({ target: `${PACKAGE_ID}::${MODULE}::${moveFn}`, arguments: args });
+      return wallet.signAndExecuteTransactionBlock({
+        transactionBlock: tx,
+        options: { showEffects: true, showObjectChanges: true },
+      });
+    }
+
+    // Legacy API
+    if (typeof wallet.signAndExecuteTransaction === "function") {
+      const tx = {
+        kind: "moveCall",
+        data: {
+          packageObjectId: PACKAGE_ID,
+          module: MODULE,
+          function: moveFn,
+          arguments: argValues,
+          typeArguments: [],
+          gasBudget,
+        },
+      };
+      return wallet.signAndExecuteTransaction(tx);
+    }
+
+    throw new Error("Wallet does not support known Sui APIs.");
+  }
+
+  // ---- Local demo (always works) ----
   document.getElementById("demo").onclick = () => {
     const a = gmv();
     const b = Math.floor(Math.random() * 3);
@@ -185,89 +161,65 @@ async function myAddress() {
     setResult(out === 0 ? "Draw" : out > 0 ? "You win!" : "You lose");
   };
 
-  // ---- Legacy wallet tx helper (no TransactionBlock) ----
-  async function signAndExecuteMoveCall(moveFn, args, gasBudget = 10_000_000) {
-    if (!wallet) throw new Error("No Sui wallet detected.");
-    await wallet.requestPermissions?.();
-    const tx = {
-      kind: "moveCall",
-      data: {
-        packageObjectId: PACKAGE_ID,
-        module: MODULE,
-        function: moveFn,
-        arguments: args,
-        typeArguments: [],
-        gasBudget,
-      },
-    };
-    // Try legacy API first:
-    if (wallet.signAndExecuteTransaction) {
-      return wallet.signAndExecuteTransaction(tx);
-    }
-    // Some wallets use the new API only; we can’t build a TransactionBlock here without the SDK.
-    throw new Error("Your wallet only supports the new API. Please use Sui Wallet legacy API or let me know and I’ll switch you back to the SDK version.");
-  }
+  // ---- Create (u64, Clock object) ----
+  document.getElementById("create").onclick = async () => {
+    try {
+      setStatus("Creating game...");
+      const res = await sendMoveCall("create_game", ["pure", "object"], [60000, CLOCK_ID], 10_000_000);
+      let gameId = "";
+      for (const ch of res?.objectChanges ?? []) {
+        if (ch.type === "created" && ch.objectType?.endsWith(`::${MODULE}::Game`)) { gameId = ch.objectId; break; }
+      }
+      if (gameId) { document.getElementById("gameId").value = gameId; setStatus(`Created game: ${gameId}`); }
+      else setStatus("Created. Open your wallet activity and copy the Game object ID.");
+    } catch (e) { console.error(e); setStatus("Create failed: " + (e.message || e)); }
+  };
 
-  // ---- CREATE: (timeout_ms, clock) ----
-     document.getElementById("create").onclick = async () => {
-  try {
-    setStatus("Creating game...");
-    const res = await sendMoveCall("create_game", ["pure", "object"], [60000, CLOCK_ID], 10_000_000);
-    // Try to extract created Game id (modern result has objectChanges)
-    let gameId = "";
-    for (const ch of res?.objectChanges ?? []) {
-      if (ch.type === "created" && ch.objectType?.endsWith(`::${MODULE}::Game`)) { gameId = ch.objectId; break; }
-    }
-    if (gameId) { document.getElementById("gameId").value = gameId; setStatus(`Created game: ${gameId}`); }
-    else setStatus("Created. Open wallet activity to copy the Game object ID.");
-  } catch (e) { console.error(e); setStatus("Create failed: " + (e.message || e)); }
-};
-
-  // ---- JOIN: (game, player, clock) ----
+  // ---- Join (Game object, address, Clock object) ----
   document.getElementById("join").onclick = async () => {
-  const id = gid(); if (!id) return setStatus("Enter Game Object ID");
-  try {
-    const addr = await myAddress(); if (!addr) return;
-    await sendMoveCall("join_game", ["object", "pure", "object"], [id, addr, CLOCK_ID]);
-    setStatus("Joined. Commit your move.");
-  } catch (e) { console.error(e); setStatus("Join failed: " + (e.message || e)); }
-};
+    const id = gid(); if (!id) return setStatus("Enter Game Object ID");
+    try {
+      const addr = await myAddress(); if (!addr) return;
+      await sendMoveCall("join_game", ["object", "pure", "object"], [id, addr, CLOCK_ID]);
+      setStatus("Joined. Commit your move.");
+    } catch (e) { console.error(e); setStatus("Join failed: " + (e.message || e)); }
+  };
 
-  // ---- COMMIT: (game, player, commitment) ----
+  // ---- Commit (Game object, address, vector<u8>) ----
   document.getElementById("commit").onclick = async () => {
-  const id = gid(); if (!id) return setStatus("Enter Game Object ID");
-  const s = gsc(); if (!s) return setStatus("Enter a secret");
-  try {
-    const addr = await myAddress(); if (!addr) return;
-    const commitment = await commitBytes(gmv(), s);
-    await sendMoveCall("commit_move", ["object", "pure", "pure"], [id, addr, commitment]);
-    setStatus("Committed.");
-  } catch (e) { console.error(e); setStatus("Commit failed: " + (e.message || e)); }
-};
+    const id = gid(); if (!id) return setStatus("Enter Game Object ID");
+    const s = gsc(); if (!s) return setStatus("Enter a secret");
+    try {
+      const addr = await myAddress(); if (!addr) return;
+      const commitment = commitBytes(gmv(), s);
+      await sendMoveCall("commit_move", ["object", "pure", "pure"], [id, addr, commitment]);
+      setStatus("Committed.");
+    } catch (e) { console.error(e); setStatus("Commit failed: " + (e.message || e)); }
+  };
 
-  // ---- REVEAL: (game, player, move_val, secretBytes) ----
+  // ---- Reveal (Game object, address, u8, vector<u8>) ----
   document.getElementById("reveal").onclick = async () => {
-  const id = gid(); if (!id) return setStatus("Enter Game Object ID");
-  const s = gsc(); if (!s) return setStatus("Enter a secret");
-  try {
-    const addr = await myAddress(); if (!addr) return;
-    const secretBytes = Array.from(new TextEncoder().encode(s));
-    await sendMoveCall("reveal_move", ["object", "pure", "pure", "pure"], [id, addr, gmv(), secretBytes]);
-    setStatus("Revealed.");
-  } catch (e) { console.error(e); setStatus("Reveal failed: " + (e.message || e)); }
-};
+    const id = gid(); if (!id) return setStatus("Enter Game Object ID");
+    const s = gsc(); if (!s) return setStatus("Enter a secret");
+    try {
+      const addr = await myAddress(); if (!addr) return;
+      const secretBytes = Array.from(new TextEncoder().encode(s));
+      await sendMoveCall("reveal_move", ["object", "pure", "pure", "pure"], [id, addr, gmv(), secretBytes]);
+      setStatus("Revealed.");
+    } catch (e) { console.error(e); setStatus("Reveal failed: " + (e.message || e)); }
+  };
 
-  // ---- CLAIM TIMEOUT: (game, clock, caller) ----
+  // ---- Claim timeout (Game object, Clock object, address) ----
   document.getElementById("claim").onclick = async () => {
-  const id = gid(); if (!id) return setStatus("Enter Game Object ID");
-  try {
-    const addr = await myAddress(); if (!addr) return;
-    await sendMoveCall("claim_timeout", ["object", "object", "pure"], [id, CLOCK_ID, addr]);
-    setStatus("Timeout claimed (if eligible).");
-  } catch (e) { console.error(e); setStatus("Claim failed: " + (e.message || e)); }
-};
+    const id = gid(); if (!id) return setStatus("Enter Game Object ID");
+    try {
+      const addr = await myAddress(); if (!addr) return;
+      await sendMoveCall("claim_timeout", ["object", "object", "pure"], [id, CLOCK_ID, addr]);
+      setStatus("Timeout claimed (if eligible).");
+    } catch (e) { console.error(e); setStatus("Claim failed: " + (e.message || e)); }
+  };
 
-  // ---- CHECK winner (read-only via RPC) ----
+  // ---- Check winner (read-only) ----
   document.getElementById("check").onclick = async () => {
     const id = gid(); if (!id) return setStatus("Enter Game Object ID");
     try {
@@ -275,10 +227,7 @@ async function myAddress() {
       const f = o?.data?.content?.fields;
       const w = f?.winner;
       setResult(w && w !== "0x0" ? `Winner: ${w}` : "Draw or pending...");
-    } catch (e) {
-      console.error(e);
-      setStatus("Fetch failed: " + (e.message || e));
-    }
+    } catch (e) { console.error(e); setStatus("Fetch failed: " + (e.message || e)); }
   };
 </script>
 </body>
