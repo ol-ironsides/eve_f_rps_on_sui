@@ -98,6 +98,47 @@ async function myAddress() {
   return a?.[0]?.address ?? null;
 }
 
+    async function sendMoveCall(moveFn, argKinds, argValues, gasBudget = 5_000_000) {
+  // argKinds: array of "pure" | "object" matching argValues positions
+  if (!(await ensureWallet())) throw new Error("No Sui wallet detected.");
+
+  // Modern API (preferred by Suiet, etc.)
+  if (typeof wallet.signAndExecuteTransactionBlock === "function") {
+    // Import the SDK lazily ONLY if we need it (avoids page-load CDN errors)
+    const { TransactionBlock } = await import("https://esm.sh/@mysten/sui/transactions");
+
+    const tx = new TransactionBlock();
+    const args = argValues.map((v, i) => (argKinds[i] === "object" ? tx.object(v) : tx.pure(v)));
+    tx.moveCall({
+      target: `${PACKAGE_ID}::${MODULE}::${moveFn}`,
+      arguments: args,
+    });
+
+    return wallet.signAndExecuteTransactionBlock({
+      transactionBlock: tx,
+      options: { showEffects: true, showObjectChanges: true },
+    });
+  }
+
+  // Legacy API (some wallets still support this)
+  if (typeof wallet.signAndExecuteTransaction === "function") {
+    const tx = {
+      kind: "moveCall",
+      data: {
+        packageObjectId: PACKAGE_ID,
+        module: MODULE,
+        function: moveFn,
+        arguments: argValues,
+        typeArguments: [],
+        gasBudget,
+      },
+    };
+    return wallet.signAndExecuteTransaction(tx);
+  }
+
+  throw new Error("Wallet does not support known Sui APIs.");
+}
+    
   // ---- Keccak256 (tiny implementation using Web Crypto as fallback) ----
   // You can replace this with @noble/hashes if you prefer, but this avoids imports.
   // We'll emulate keccak256 using SubtleCrypto SHA-3 if available; if not, prompt user.
@@ -168,72 +209,63 @@ async function myAddress() {
   }
 
   // ---- CREATE: (timeout_ms, clock) ----
-  document.getElementById("create").onclick = async () => {
-    try {
-      setStatus("Creating game...");
-      await signAndExecuteMoveCall("create_game", [60000, CLOCK_ID], 10_000_000); // 60s + shared Clock
-      setStatus("Created. Open wallet activity for the new Game object ID, then paste it into the field.");
-    } catch (e) {
-      console.error(e);
-      setStatus("Create failed: " + (e.message || e));
+     document.getElementById("create").onclick = async () => {
+  try {
+    setStatus("Creating game...");
+    const res = await sendMoveCall("create_game", ["pure", "object"], [60000, CLOCK_ID], 10_000_000);
+    // Try to extract created Game id (modern result has objectChanges)
+    let gameId = "";
+    for (const ch of res?.objectChanges ?? []) {
+      if (ch.type === "created" && ch.objectType?.endsWith(`::${MODULE}::Game`)) { gameId = ch.objectId; break; }
     }
-  };
+    if (gameId) { document.getElementById("gameId").value = gameId; setStatus(`Created game: ${gameId}`); }
+    else setStatus("Created. Open wallet activity to copy the Game object ID.");
+  } catch (e) { console.error(e); setStatus("Create failed: " + (e.message || e)); }
+};
 
   // ---- JOIN: (game, player, clock) ----
   document.getElementById("join").onclick = async () => {
-    const id = gid(); if (!id) return setStatus("Enter Game Object ID");
-    try {
-      const addr = await myAddress();
-      await signAndExecuteMoveCall("join_game", [id, addr, CLOCK_ID], 5_000_000);
-      setStatus("Joined. Commit your move.");
-    } catch (e) {
-      console.error(e);
-      setStatus("Join failed: " + (e.message || e));
-    }
-  };
+  const id = gid(); if (!id) return setStatus("Enter Game Object ID");
+  try {
+    const addr = await myAddress(); if (!addr) return;
+    await sendMoveCall("join_game", ["object", "pure", "object"], [id, addr, CLOCK_ID]);
+    setStatus("Joined. Commit your move.");
+  } catch (e) { console.error(e); setStatus("Join failed: " + (e.message || e)); }
+};
 
   // ---- COMMIT: (game, player, commitment) ----
   document.getElementById("commit").onclick = async () => {
-    const id = gid(); if (!id) return setStatus("Enter Game Object ID");
-    const s = gsc(); if (!s) return setStatus("Enter a secret");
-    try {
-      const addr = await myAddress();
-      const commitment = await commitBytes(gmv(), s);
-      await signAndExecuteMoveCall("commit_move", [id, addr, commitment], 5_000_000);
-      setStatus("Committed.");
-    } catch (e) {
-      console.error(e);
-      setStatus("Commit failed: " + (e.message || e));
-    }
-  };
+  const id = gid(); if (!id) return setStatus("Enter Game Object ID");
+  const s = gsc(); if (!s) return setStatus("Enter a secret");
+  try {
+    const addr = await myAddress(); if (!addr) return;
+    const commitment = await commitBytes(gmv(), s);
+    await sendMoveCall("commit_move", ["object", "pure", "pure"], [id, addr, commitment]);
+    setStatus("Committed.");
+  } catch (e) { console.error(e); setStatus("Commit failed: " + (e.message || e)); }
+};
 
   // ---- REVEAL: (game, player, move_val, secretBytes) ----
   document.getElementById("reveal").onclick = async () => {
-    const id = gid(); if (!id) return setStatus("Enter Game Object ID");
-    const s = gsc(); if (!s) return setStatus("Enter a secret");
-    try {
-      const addr = await myAddress();
-      const secretBytes = Array.from(new TextEncoder().encode(s));
-      await signAndExecuteMoveCall("reveal_move", [id, addr, gmv(), secretBytes], 5_000_000);
-      setStatus("Revealed.");
-    } catch (e) {
-      console.error(e);
-      setStatus("Reveal failed: " + (e.message || e));
-    }
-  };
+  const id = gid(); if (!id) return setStatus("Enter Game Object ID");
+  const s = gsc(); if (!s) return setStatus("Enter a secret");
+  try {
+    const addr = await myAddress(); if (!addr) return;
+    const secretBytes = Array.from(new TextEncoder().encode(s));
+    await sendMoveCall("reveal_move", ["object", "pure", "pure", "pure"], [id, addr, gmv(), secretBytes]);
+    setStatus("Revealed.");
+  } catch (e) { console.error(e); setStatus("Reveal failed: " + (e.message || e)); }
+};
 
   // ---- CLAIM TIMEOUT: (game, clock, caller) ----
   document.getElementById("claim").onclick = async () => {
-    const id = gid(); if (!id) return setStatus("Enter Game Object ID");
-    try {
-      const addr = await myAddress();
-      await signAndExecuteMoveCall("claim_timeout", [id, CLOCK_ID, addr], 5_000_000);
-      setStatus("Timeout claimed (if eligible).");
-    } catch (e) {
-      console.error(e);
-      setStatus("Claim failed: " + (e.message || e));
-    }
-  };
+  const id = gid(); if (!id) return setStatus("Enter Game Object ID");
+  try {
+    const addr = await myAddress(); if (!addr) return;
+    await sendMoveCall("claim_timeout", ["object", "object", "pure"], [id, CLOCK_ID, addr]);
+    setStatus("Timeout claimed (if eligible).");
+  } catch (e) { console.error(e); setStatus("Claim failed: " + (e.message || e)); }
+};
 
   // ---- CHECK winner (read-only via RPC) ----
   document.getElementById("check").onclick = async () => {
