@@ -64,19 +64,39 @@
   const gmv = () => Number(document.getElementById("move").value);
   const gsc = () => document.getElementById("secret").value;
 
-  const wallet = window.suiWallet || window.wallet;
+  function getWallet() {
+  // Try common Sui wallets:
+  return (
+    window.suiWallet ||          // Sui Wallet (Mysten)
+    window.suiet ||              // Suiet
+    window.ethos?.wallet ||      // Ethos
+    window.martian ||            // Martian (Sui)
+    window.onekey?.sui ||        // OneKey Sui
+    window.wallet ||             // generic
+    null
+  );
+}
+let wallet = getWallet();
 
-  // ---- Simple JSON-RPC helper (no SDK) ----
-  async function rpc(method, params) {
-    const res = await fetch(FULLNODE, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    });
-    const j = await res.json();
-    if (j.error) throw new Error(j.error.message || "RPC error");
-    return j.result;
+async function ensureWallet() {
+  wallet = getWallet();
+  if (!wallet) {
+    setStatus("No Sui wallet detected. Install Sui Wallet or Suiet, enable on this site, then reload.");
+    return false;
   }
+  try {
+    await wallet.requestPermissions?.();
+  } catch (e) {
+    // Some wallets don’t implement requestPermissions; ignore
+  }
+  return true;
+}
+
+async function myAddress() {
+  if (!(await ensureWallet())) return null;
+  const a = await wallet?.getAccounts?.();
+  return a?.[0]?.address ?? null;
+}
 
   // ---- Keccak256 (tiny implementation using Web Crypto as fallback) ----
   // You can replace this with @noble/hashes if you prefer, but this avoids imports.
