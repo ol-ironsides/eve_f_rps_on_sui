@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.tgz
+move/build/
+sui-bridge
+sui-bridge-cli
+sui-data-ingestion
+sui-debug
+sui-faucet
+sui-graphql-rpc
+sui-node
+sui-test-validator
+sui-tool
+.DS_Store
+*.log
