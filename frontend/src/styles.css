@@ -1,0 +1,93 @@
+body {
+  background: #000;
+  color: #fff;
+  font-family: monospace;
+  margin: 0;
+  padding: 20px;
+  text-align: center;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.players {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.player {
+  border: 2px solid #d11;
+  padding: 6px 12px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn {
+  background: #d11;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.btn:hover {
+  background: #e33;
+}
+
+input,
+select {
+  padding: 8px;
+  background: #111;
+  color: #fff;
+  border: 1px solid #222;
+  min-width: 180px;
+}
+
+.status {
+  color: #aaa;
+  margin-top: 12px;
+}
+
+.result {
+  color: #d11;
+  margin-top: 14px;
+  font-size: 1.2em;
+  animation: pulse 1.2s infinite alternate;
+}
+
+.note {
+  color: #f77;
+  margin: 12px 0;
+}
+
+code {
+  color: #fff;
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+}
