@@ -2,6 +2,9 @@ node_modules/
 dist/
 *.tgz
 move/build/
+sui/
+sui-release/
+move-analyzer
 sui-bridge
 sui-bridge-cli
 sui-data-ingestion
