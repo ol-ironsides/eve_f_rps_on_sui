@@ -1,0 +1,13 @@
+[package]
+name = "rps_commit_reveal"
+version = "0.0.1"
+
+[addresses]
+# TODO: Set this to your publishing address before `sui move publish`.
+# For local builds you can leave 0x0 and override at publish time.
+greathomes = "0x0"
+
+## Dependencies
+## Let the Sui CLI auto-add framework packages (Sui, MoveStdlib, SuiSystem) for the active env (testnet).
+## Prevents double inclusion of stdlib modules when publishing. Add a dependency here only if you need a fixed
+## framework revision and your CLI matches it exactly.
