@@ -15,12 +15,14 @@
   <script type="importmap">
     {
       "imports": {
-  "@wallet-standard/app": "https://cdn.jsdelivr.net/npm/@wallet-standard/app@1.1.0/lib/esm/index.js",
-  "@wallet-standard/base": "https://cdn.jsdelivr.net/npm/@wallet-standard/base@1.1.0/lib/esm/index.js",
-  "@wallet-standard/core": "https://cdn.jsdelivr.net/npm/@wallet-standard/core@1.1.0/lib/esm/index.js",
-  "@wallet-standard/errors": "https://cdn.jsdelivr.net/npm/@wallet-standard/errors@1.1.0/lib/esm/index.js",
-  "@wallet-standard/features": "https://cdn.jsdelivr.net/npm/@wallet-standard/features@1.1.0/lib/esm/index.js",
-  "@wallet-standard/wallet": "https://cdn.jsdelivr.net/npm/@wallet-standard/wallet@1.1.0/lib/esm/index.js"
+        "@wallet-standard/app": "https://cdn.jsdelivr.net/npm/@wallet-standard/app@1.1.0/lib/esm/index.js",
+        "@wallet-standard/app/installHook": "./wallet-standard-install-hook.js",
+        "@wallet-standard/app/installHook.js": "./wallet-standard-install-hook.js",
+        "@wallet-standard/base": "https://cdn.jsdelivr.net/npm/@wallet-standard/base@1.1.0/lib/esm/index.js",
+        "@wallet-standard/core": "https://cdn.jsdelivr.net/npm/@wallet-standard/core@1.1.0/lib/esm/index.js",
+        "@wallet-standard/errors": "https://cdn.jsdelivr.net/npm/@wallet-standard/errors@1.1.0/lib/esm/index.js",
+        "@wallet-standard/features": "https://cdn.jsdelivr.net/npm/@wallet-standard/features@1.1.0/lib/esm/index.js",
+        "@wallet-standard/wallet": "https://cdn.jsdelivr.net/npm/@wallet-standard/wallet@1.1.0/lib/esm/index.js"
       }
     }
   </script>
@@ -28,6 +30,7 @@
 <body>
   <script type="module">
     import '@wallet-standard/core';
+    import '@wallet-standard/app/installHook.js';
     import { getWallets } from '@wallet-standard/app';
     try {
       getWallets();
