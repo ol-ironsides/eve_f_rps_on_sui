@@ -28,7 +28,13 @@
 <body>
   <script type="module">
     import '@wallet-standard/core';
-    window.dispatchEvent(new CustomEvent('wallet-standard:app-ready'));
+    import { getWallets } from '@wallet-standard/app';
+    try {
+      getWallets();
+      console.debug('[rps-wallet] wallet-standard registry initialized');
+    } catch (error) {
+      console.warn('[rps-wallet] wallet-standard registry failed to init', error);
+    }
   </script>
   <h1>Rock-paper-scissors on Sui</h1>
   <div><div class="player">Player 1</div><div class="player">Player 2</div></div>
