@@ -9,8 +9,6 @@
     .player{border:2px solid #d11;display:inline-block;padding:6px 12px;margin:8px}
     .btn{background:#d11;color:#fff;border:none;padding:10px 16px;margin:6px;font-weight:bold;cursor:pointer}
     input,select{padding:8px;margin:6px;background:#111;color:#fff;border:1px solid #222}
-    .status{color:#aaa;margin-top:10px}
-    .result{color:#d11;margin-top:12px;font-size:1.2em;animation:pulse 1.2s infinite alternate}
     @keyframes pulse{from{transform:scale(1);opacity:.7}to{transform:scale(1.06);opacity:1}}
     .note{color:#f77;margin:12px 0}
   </style>
@@ -46,6 +44,7 @@
   <div class="status" id="status">Ready</div>
   <div class="result" id="result"></div>
 
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@wallet-standard/core@1.1.1/lib/esm/index.js"></script>
   <script type="module">
   /* Minimal wallet-agnostic client, one-of-each definitions */
 

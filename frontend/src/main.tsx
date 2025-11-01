@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { TransactionBlock } from '@mysten/sui.js';
+import '@wallet-standard/core';
 import { getWallets } from '@mysten/wallet-standard';
 import { keccak_256 } from '@noble/hashes/sha3';
 import './styles.css';
