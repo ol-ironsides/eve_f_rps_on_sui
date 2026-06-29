@@ -1,5 +1,5 @@
 # 🎮 Rock-Paper-Scissors on Sui  
-*A minimal blockchain game built on the Sui Testnet — prebuilt for GitHub Pages.*
+*(deprecated app with security issues) A minimal blockchain game built on the Sui Testnet — prebuilt for GitHub Pages.*
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Sui Testnet](https://img.shields.io/badge/Network-Sui%20Testnet-green)](https://sui.io/)
