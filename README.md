@@ -32,8 +32,4 @@ It demonstrates minimal smart-contract logic in Move, paired with a static front
 
 ---
 
-## 🚀 Quick Start (GitHub Pages)
-1. **Clone** this repo  
-   ```bash
-   git clone https://github.com/ol-ironsides/eve_f_rps_on_sui.git
-   cd eve_f_rps_on_sui
+
